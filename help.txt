@@ -1,0 +1,9 @@
+USAGE frost [OPTIONS] FILENAME
+
+OPTIONS:
+	--help     display this file
+	--version  display the version number
+	-c         compile = true
+	-C         compile = false
+	-x         execute = true
+	-X         execute = false
