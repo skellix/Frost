@@ -9,6 +9,20 @@ public class FrostCommandUtils {
 			return new ElseCommand();
 		} else if (word.matches("==")) {
 			return new EqualsCommand();
+		} else if (word.matches("!=")) {
+			return new NotEqualsCommand();
+		} else if (word.matches("<")) {
+			return new LessThanCommand();
+		} else if (word.matches("<=")) {
+			return new LessThanEqualsCommand();
+		} else if (word.matches(">")) {
+			return new GreaterThanCommand();
+		} else if (word.matches(">=")) {
+			return new GreaterThanEqualsCommand();
+		} else if (word.matches("!")) {
+			return new NotCommand();
+		} else if (word.matches("equals")) {
+			return new StringEqualsCommand();
 		}
 // math
 		else if (word.equals("+")) {
