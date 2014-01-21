@@ -136,7 +136,7 @@ public class JFrost {
 				}
 				new File("manifest.txt").delete();
 				new File("fileList.txt").delete();
-				System.out.print("compile done!\n");
+				System.out.println("compile done!");
 				for (String fileName : filesToBeCleaned) {
 					if (!fileName.equals(srcName+".java")) new File(fileName).delete();
 				}

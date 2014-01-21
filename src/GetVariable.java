@@ -1,4 +1,5 @@
 import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 public class GetVariable extends FrostCommand {
@@ -18,17 +19,20 @@ public class GetVariable extends FrostCommand {
 		} else {
 			frostThread.error("No variable named '"+args[0]+"' has been declared in this scope");
 		}
-		for (int i = 1 ; i < args.length-1 ; i ++) {
+		for (int i = 1 ; i < args.length ; i ++) {
 			String key = args[i];
-			if (fc instanceof HashMap<?, ?>) {
-				HashMap<?, ?> map = (HashMap<?, ?>) fc;
+			if (fc instanceof FrostClass) {
+				fc = ((FrostClass) fc).children;
+			}
+			if (fc instanceof ConcurrentHashMap<?, ?>) {
+				ConcurrentHashMap<?, ?> map = (ConcurrentHashMap<?, ?>) fc;
 				if (map.containsKey(key)) {
 					fc = map.get(key);
 				} else {
 					frostThread.error("hashmap '"+args[i-1]+"' does not contain '"+key+"'");
 				}
 			} else {
-				frostThread.error(args[i-1]+"is not a hashmap");
+				frostThread.error(args[i-1]+" is not a hashmap");
 			}
 		}
 		frostThread.carry.set(fc);

@@ -7,6 +7,10 @@ public class FrostCommandUtils {
 			return new IfCommand();
 		} else if (word.equals("else")) {
 			return new ElseCommand();
+		} else if (word.equals("elsif")) {
+			return new ElseIfCommand();
+		} else if (word.equals("while")) {
+			return new WhileCommand();
 		} else if (word.matches("==")) {
 			return new EqualsCommand();
 		} else if (word.matches("!=")) {
@@ -97,6 +101,10 @@ public class FrostCommandUtils {
 			return new GoSubCommand(word.substring(2));
 		} else if (word.endsWith("::")) {
 			return new SubPointerCommand(word.substring(0, word.length()-2));
+		} else if (word.endsWith(":")) {
+			return new IndexPointer(word.substring(0, word.length()-1));
+		} else if (word.startsWith(":")) {
+			return new GotoIndexPointer(word.substring(1));
 		}
 		return null;
 	}

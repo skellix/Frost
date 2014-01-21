@@ -15,7 +15,7 @@ public class JFrostCompiler {
 
 	public String compile(String src) {
 		//src = src.replaceAll("\"\\s*\n\\s*", "\n\" ").replaceAll("\\s*\n\\s*\"", " \" \n");
-		//src = src.replaceAll("\\{\\s*\n\\s*", "\n{ ").replaceAll("\\s*\n\\s*\\}", " } \n");
+		src = src.replaceAll("(\\{[^{}\n]*\n)", "\n$1").replaceAll("(\n[^{}\n]*\\})", "$1\n");
 		//src = src.replaceAll("\\(\\s*\n\\s*", "\n( ").replaceAll("\\s*\n\\s*\\)", " ) \n");
 		AtomicInteger index = new AtomicInteger(0);
 		EnclosingSet set = getCurly(index, " "+src+"\ndie");
@@ -79,9 +79,20 @@ public class JFrostCompiler {
 					}
 				}
 				if (word.startsWith("ParenSet")) {
-					FrostSet newSet = readSet(set.children.get(word));
-					out.children.put(word, newSet);
-					((FrostCommandSet) out.children.get("#commands")).add(new GoSubCommand(word));
+					if (words.get(i+1).equals("elsif")) {
+						FrostCommand newSet = new FrostCommandUtils().commandForString(words.get(i+1));
+						if (newSet != null) {
+							((FrostCommandSet) out.children.get("#commands")).add(newSet);
+						}
+						FrostSet newSet2 = readSet(set.children.get(word));
+						out.children.put(word, newSet2);
+						((FrostCommandSet) out.children.get("#commands")).add(new GoSubCommand(word));
+						i++;
+					} else {
+						FrostSet newSet = readSet(set.children.get(word));
+						out.children.put(word, newSet);
+						((FrostCommandSet) out.children.get("#commands")).add(new GoSubCommand(word));
+					}
 				} else if (word.startsWith("QuoteSet")) {
 					String quoteSrc = set.children.get(word).src;
 					((FrostCommandSet) out.children.get("#commands")).add(new StringCommand(quoteSrc));

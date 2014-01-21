@@ -36,6 +36,7 @@ public class FrostThread implements Runnable {
 	public List<AtomicInteger> index = Collections.synchronizedList(new ArrayList<AtomicInteger>());
 	public List<FrostClass> stack = Collections.synchronizedList(new ArrayList<FrostClass>());
 	public ConcurrentHashMap<String, Object> variables = new ConcurrentHashMap<String, Object>();
+	public ConcurrentHashMap<String, Integer> indexes = new ConcurrentHashMap<String, Integer>();
 	public AtomicReference<Object> carry = new AtomicReference<Object>();
 	public void execute() {
 		running.set(true);
@@ -46,6 +47,7 @@ public class FrostThread implements Runnable {
 		try {
 			threads.add(this);
 			while (running.get()) {
+				FrostSet commandsCopy = stack.get(stack.size()-1).children.get("#commands");
 				getNextAndIncrement().execute(this);
 			}
 			threads.remove(this);
