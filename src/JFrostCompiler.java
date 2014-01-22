@@ -4,8 +4,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
 
 public class JFrostCompiler {
 
@@ -14,16 +14,19 @@ public class JFrostCompiler {
 	}
 
 	public String compile(String src) {
+		FrostClass fc = compileClasses(src);
+		fc.name = "#global";
+		StringBuilder out = new StringBuilder();
+		generateCode(fc, out);
+		return out.toString();
+	}
+	public FrostClass compileClasses(String src) {
 		//src = src.replaceAll("\"\\s*\n\\s*", "\n\" ").replaceAll("\\s*\n\\s*\"", " \" \n");
 		src = src.replaceAll("(\\{[^{}\n]*\n)", "\n$1").replaceAll("(\n[^{}\n]*\\})", "$1\n");
 		//src = src.replaceAll("\\(\\s*\n\\s*", "\n( ").replaceAll("\\s*\n\\s*\\)", " ) \n");
 		AtomicInteger index = new AtomicInteger(0);
 		EnclosingSet set = getCurly(index, " "+src+"\ndie");
-		FrostClass fc = getFrostMain(set);
-		fc.name = "#global";
-		StringBuilder out = new StringBuilder();
-		generateCode(fc, out);
-		return out.toString();
+		return getFrostMain(set);
 	}
 	
 	// convert to frost
@@ -32,7 +35,7 @@ public class JFrostCompiler {
 		return out;
 	}
 	private FrostClass readSet(EnclosingSet set) {
-		set.src = set.src.replaceAll("\\$([^\\$\\[\\s]+)\\[\\s*([^\\[\\]]+)\\s*\\]", "#arrayGet$1 $2");
+		//set.src = set.src.replaceAll("\\$([^\\$\\[\\s]+)\\[\\s*([^\\[\\]]+)\\s*\\]", "#arrayGet$1 $2");
 		FrostClass out = new FrostClass();
 		out.children.put("#commands", new FrostCommandSet());
 		String[] lines = set.src.split("\n");
@@ -100,6 +103,9 @@ public class JFrostCompiler {
 					String graveSrc = set.children.get(word).src;
 					((FrostCommandSet) out.children.get("#commands")).add(new RunCommand(graveSrc));
 				} else {
+					if (word.contains("#SquareSet_")) {
+						word = replaceSquareSets(word, set);
+					}
 					FrostCommand newSet = new FrostCommandUtils().commandForString(word);
 					if (newSet != null) {
 						((FrostCommandSet) out.children.get("#commands")).add(newSet);
@@ -108,6 +114,17 @@ public class JFrostCompiler {
 			}
 		}
 		return out;
+	}
+
+	private String replaceSquareSets(String word, final EnclosingSet set) {
+		word = new SuperReplace(word){
+
+			@Override
+			public String getReplacement(StringBuffer sb, Matcher matcher) {
+				return "["+replaceSquareSets(set.children.get(matcher.group(1)).src, set).trim()+"]";
+			}
+		}.replace("#(SquareSet_\\d+)#");
+		return word;
 	}
 
 	// convert to java code
@@ -157,7 +174,11 @@ public class JFrostCompiler {
 				EnclosingSet result = getResult(index, src);
 				if (result != null) {
 					out.children.put(result.toString(), result);
-					out.src += " "+result.toString()+" ";
+					if (result instanceof SquareSet) {
+						out.src += "#"+result.toString()+"#";
+					} else {
+						out.src += " "+result.toString()+" ";
+					}
 				} else {
 					if (src.charAt(index.get()) == '/' && src.charAt(index.get()+1) == '/') {
 						while (index.get()+1 < src.length() && src.charAt(index.get()+1) != '\n') {
@@ -177,7 +198,13 @@ public class JFrostCompiler {
 			if (src.charAt(index.get()) == '\"' && src.charAt(index.get()-1) != '\\') {
 				break;
 			} else {
-				out.src += src.charAt(index.get());
+				if (src.charAt(index.get()) == '\\') {
+					out.src += src.charAt(index.get());
+					index.getAndIncrement();
+					out.src += src.charAt(index.get());
+				} else {
+					out.src += src.charAt(index.get());
+				}
 			}
 		}
 		//seek(index, src, out, '\"');
@@ -200,6 +227,11 @@ public class JFrostCompiler {
 		out.src += "\nreturn";
 		return out;
 	}
+	private EnclosingSet getSquare(AtomicInteger index, String src) {
+		SquareSet out = new SquareSet();
+		seek(index, src, out, ']');
+		return out;
+	}
 	
 	private EnclosingSet getResult(AtomicInteger index, String src) {
 		switch (src.charAt(index.get())) {
@@ -207,6 +239,7 @@ public class JFrostCompiler {
 		case '`' : return getGrave(index, src);
 		case '{' : return getCurly(index, src);
 		case '(' : return getParen(index, src);
+		case '[' : return getSquare(index, src);
 		default : return null;
 		}
 	}

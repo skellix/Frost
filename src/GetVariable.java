@@ -1,4 +1,4 @@
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
 
 
@@ -14,10 +14,14 @@ public class GetVariable extends FrostCommand {
 	public void execute(FrostThread frostThread) {
 		String[] args = text.split("\\.");
 		Object fc = null;
-		if (frostThread.variables.containsKey(args[0])) {
-			fc = frostThread.variables.get(args[0]);
+		if (args[0].contains("[")) {
+			fc = getArrayElement(frostThread, args[0], frostThread.variables);
 		} else {
-			frostThread.error("No variable named '"+args[0]+"' has been declared in this scope");
+			if (frostThread.variables.containsKey(args[0])) {
+				fc = frostThread.variables.get(args[0]);
+			} else {
+				frostThread.error("No variable named '"+args[0]+"' has been declared in this scope");
+			}
 		}
 		for (int i = 1 ; i < args.length ; i ++) {
 			String key = args[i];
@@ -36,6 +40,32 @@ public class GetVariable extends FrostCommand {
 			}
 		}
 		frostThread.carry.set(fc);
+	}
+
+	private Object getArrayElement(FrostThread frostThread, String arg, ConcurrentHashMap<String, Object> map) {
+		if (arg.contains("[")) {
+			String name = arg.split("\\[")[0];
+			String text = arg.substring(name.length()+1, arg.lastIndexOf(']'));
+			if (map.containsKey(name)) {
+				if (text.matches("\\d+")) {
+					if (map.get(name) instanceof ArrayList<?>) {
+						return ((ArrayList) map.get(name)).get(Integer.parseInt(text));
+					} else {
+						frostThread.error("'"+name+"' is not an arrayList");
+					}
+				} else {
+					FrostThread frostThread2 = new FrostThread();
+					frostThread2.variables.putAll(map);
+					new GetVariable(text).execute(frostThread2);
+					return frostThread2.carry.get();
+				}
+			} else {
+				frostThread.error("No variable named '"+name+"' has been declared in this scope");
+			}
+			return null;
+		} else {
+			return arg;
+		}
 	}
 
 	public String getInitString() {
