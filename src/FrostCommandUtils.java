@@ -94,6 +94,18 @@ public class FrostCommandUtils {
 		} else if (word.equals("close")) {
 			return new CloseStreamCommand();
 		}
+// collection
+		else if (word.equals("arrayList")) {
+			return new ArrayListCommand();
+		} else if (word.equals("hashMap")) {
+			return new HashMapCommand();
+		} else if (word.equals("add")) {
+			return new ArrayAddCommand();
+		} else if (word.equals("put")) {
+			//return new HashMapPutCommand();
+		} else if (word.equals("remove")) {
+			//return new HashMapRemoveCommand();
+		}
 // misc
 		else if (word.equals("return")) {
 			return new ReturnCommand();
@@ -105,6 +117,8 @@ public class FrostCommandUtils {
 			return new IndexPointer(word.substring(0, word.length()-1));
 		} else if (word.startsWith(":")) {
 			return new GotoIndexPointer(word.substring(1));
+		} else if (word.equals("compile")) {
+			return new CompileCommand();
 		}
 		return null;
 	}
