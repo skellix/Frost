@@ -93,6 +93,8 @@ public class FrostCommandUtils {
 			return new WriteCommand();
 		} else if (word.equals("close")) {
 			return new CloseStreamCommand();
+		} else if (word.equals("scanLine")) {
+			return new ScanLineCommand();
 		}
 // collection
 		else if (word.equals("arrayList")) {
@@ -119,6 +121,8 @@ public class FrostCommandUtils {
 			return new GotoIndexPointer(word.substring(1));
 		} else if (word.equals("compile")) {
 			return new CompileCommand();
+		} else if (word.equals("import")) {
+			return new ImportCommand();
 		}
 		return null;
 	}

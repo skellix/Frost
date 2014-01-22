@@ -3,7 +3,7 @@
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.file.Path;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -12,7 +12,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.sound.midi.Patch;
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
 
@@ -165,6 +164,17 @@ public class JFrost {
 								Scanner errScanner = new Scanner(process.getErrorStream());
 								while (processRunning.get() && errScanner.hasNextLine()) {
 									System.err.println(errScanner.nextLine());
+								}
+							}
+						}).start();
+						new Thread(new Runnable() {
+							
+							@Override
+							public void run() {
+								PrintWriter printWriter = new PrintWriter(process.getOutputStream());
+								Scanner scanner = new Scanner(System.in);
+								while (processRunning.get() && scanner.hasNextLine()) {
+									printWriter.println(scanner.nextLine());
 								}
 							}
 						}).start();
