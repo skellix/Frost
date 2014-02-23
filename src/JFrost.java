@@ -67,9 +67,11 @@ public class JFrost {
 			for (String fileName : frostSrcBase.list()) {
 				String filePath = frostSrcBase.getAbsolutePath()+File.separatorChar+fileName;
 				if (new File(filePath).isFile()) {
-					if (!fileName.equals(srcName+".java")) {
-						new FrostUtills().printFile(fileName, new FrostUtills().readFile(new File(filePath)));
-						filesToBeCleaned.add(fileName);
+					if (!fileName.startsWith(".")) {
+						if (!fileName.equals(srcName+".java")) {
+							new FrostUtills().printFile(fileName, new FrostUtills().readFile(new File(filePath)));
+							filesToBeCleaned.add(fileName);
+						}
 					}
 				}
 			}
@@ -98,7 +100,7 @@ public class JFrost {
 					@Override
 					public void write(int b) throws IOException {
 						if (b == '\n') {
-							//System.err.println(work);
+							System.err.println(work);
 							Matcher matcher = Pattern.compile("\\[wrote RegularFileObject\\[(.*)\\]\\]").matcher(work);
 							if (matcher.find()) {
 								createdClassFiles.add(matcher.group(1));
