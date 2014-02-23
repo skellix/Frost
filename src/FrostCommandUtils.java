@@ -109,7 +109,9 @@ public class FrostCommandUtils {
 			//return new HashMapRemoveCommand();
 		}
 // misc
-		else if (word.equals("return")) {
+		else if (word.equals("runnable")) {
+			return new RunnableCommand();
+		}else if (word.equals("return")) {
 			return new ReturnCommand();
 		} else if (word.startsWith("::")) {
 			return new GoSubCommand(word.substring(2));
