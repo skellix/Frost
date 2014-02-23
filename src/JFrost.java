@@ -100,7 +100,7 @@ public class JFrost {
 					@Override
 					public void write(int b) throws IOException {
 						if (b == '\n') {
-							System.err.println(work);
+							//System.err.println(work);
 							Matcher matcher = Pattern.compile("\\[wrote RegularFileObject\\[(.*)\\]\\]").matcher(work);
 							if (matcher.find()) {
 								createdClassFiles.add(matcher.group(1));
