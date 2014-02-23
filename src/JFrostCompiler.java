@@ -4,10 +4,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 
 public class JFrostCompiler {
+	
+	String _nativeJavaCode = "";
 
 	public JFrostCompiler() {
 		// TODO Auto-generated constructor stub
@@ -23,7 +26,7 @@ public class JFrostCompiler {
 	public FrostClass compileClasses(String src) {
 		//src = src.replaceAll("\"\\s*\n\\s*", "\n\" ").replaceAll("\\s*\n\\s*\"", " \" \n");
 		src = src.replaceAll("(\\{[^{}\n]*\n)", "\n$1").replaceAll("(\n[^{}\n]*\\})", "$1\n");
-		//src = src.replaceAll("\\(\\s*\n\\s*", "\n( ").replaceAll("\\s*\n\\s*\\)", " ) \n");
+		//src = src.replaceAll("( ?(=~all|=~|==|!=|>|<|>=|<=|!|\\+|-|/|\\*|%|=) ?)", " $2 ");
 		AtomicInteger index = new AtomicInteger(0);
 		EnclosingSet set = getCurly(index, " "+src+"\ndie");
 		return getFrostMain(set);
@@ -36,6 +39,7 @@ public class JFrostCompiler {
 	}
 	private FrostClass readSet(EnclosingSet set) {
 		//set.src = set.src.replaceAll("\\$([^\\$\\[\\s]+)\\[\\s*([^\\[\\]]+)\\s*\\]", "#arrayGet$1 $2");
+		set.src = set.src.replaceAll("( ?(=~all|=~|==|!=|>|<|>=|<=|!|\\+|-|/|\\*|%|=) ?)", " $2 ");
 		FrostClass out = new FrostClass();
 		out.children.put("#commands", new FrostCommandSet());
 		String[] lines = set.src.split("\n");
@@ -102,6 +106,23 @@ public class JFrostCompiler {
 				} else if (word.startsWith("GraveSet")) {
 					String graveSrc = set.children.get(word).src;
 					((FrostCommandSet) out.children.get("#commands")).add(new RunCommand(graveSrc));
+				} else if (word.startsWith("#HashSet_")) {
+					final HashSet hashSet = ((HashSet) set.children.get(word.substring(0, word.length()-1)));
+					_nativeJavaCode += "public static void "+hashSet.name+"(FrostThread thread) {";
+					_nativeJavaCode += hashSet.src+"\n";
+					
+					FrostClass newSet = new FrostClass() {{
+						name = hashSet.name;
+						children = new ConcurrentHashMap<String, FrostSet>() {{
+							put("#commands", new FrostCommandSet() {{
+								add(new StringCommand(JFrost.srcName+"."+hashSet.name));
+								add(new RunnableCommand());
+								add(new ReturnCommand());
+							}});
+						}};
+					}};
+					newSet.parent = out;
+					out.children.put(hashSet.name, newSet);
 				} else {
 					if (word.contains("#SquareSet_")) {
 						word = replaceSquareSets(word, set);
@@ -141,8 +162,13 @@ public class JFrostCompiler {
 		out.append("}});\n");
 		out.append("}}.execute();\n");
 		out.append("}\n");
+		addNatives(out);
 		out.append("}");
 	}
+	private void addNatives(StringBuilder out) {
+		out.append(_nativeJavaCode+"\n");
+	}
+
 	private void addSets(FrostSet set, StringBuilder out) {
 		if (set instanceof FrostClass) {
 			FrostClass fc = (FrostClass) set;
@@ -174,8 +200,8 @@ public class JFrostCompiler {
 				EnclosingSet result = getResult(index, src);
 				if (result != null) {
 					out.children.put(result.toString(), result);
-					if (result instanceof SquareSet) {
-						out.src += "#"+result.toString()+"#";
+					if (result instanceof SquareSet || result instanceof HashSet) {
+						out.src += result.toString()+"#";
 					} else {
 						out.src += " "+result.toString()+" ";
 					}
@@ -210,6 +236,40 @@ public class JFrostCompiler {
 		//seek(index, src, out, '\"');
 		return out;
 	}
+	private EnclosingSet getHash(AtomicInteger index, String src) {
+		HashSet out = new HashSet();
+		if (!(""+src.charAt(index.get()-1)).matches("\\s")) {
+			return null;
+		}
+		int start = index.incrementAndGet();
+		while (src.charAt(index.getAndIncrement()) != '{');
+		String[] label = src.substring(start, index.get()-1).split("\\s+");
+		if (label[0].equals("native")) {
+			if (label.length > 2) {
+				out.type = label[1];
+				out.name = label[2];
+			} else {
+				System.err.println("More arguments expected in native method at: "+getLineNumber(index, src));
+				System.exit(1);
+			}
+		}
+		for (; index.get() < src.length() ; index.getAndIncrement()) {
+			if (src.charAt(index.get()) == '#' && src.charAt(index.get()-1) != '\\') {
+				break;
+			} else {
+				if (src.charAt(index.get()) == '\\') {
+					out.src += src.charAt(index.get());
+					index.getAndIncrement();
+					out.src += src.charAt(index.get());
+				} else {
+					out.src += src.charAt(index.get());
+				}
+			}
+		}
+		//seek(index, src, out, '\"');
+		return out;
+	}
+
 	private EnclosingSet getGrave(AtomicInteger index, String src) {
 		GraveSet out = new GraveSet();
 		seek(index, src, out, '`');
@@ -240,8 +300,18 @@ public class JFrostCompiler {
 		case '{' : return getCurly(index, src);
 		case '(' : return getParen(index, src);
 		case '[' : return getSquare(index, src);
+		case '#' : return getHash(index, src);
 		default : return null;
 		}
 	}
 
+	private int getLineNumber(AtomicInteger index, String src) {
+		int count = 1;
+		for (int i = 0 ; i < index.get() ; i ++) {
+			if (src.charAt(i) == '\n') {
+				count ++;
+			}
+		}
+		return count;
+	}
 }
