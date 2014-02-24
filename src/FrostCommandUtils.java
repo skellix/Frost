@@ -97,9 +97,9 @@ public class FrostCommandUtils {
 			return new ScanLineCommand();
 		}
 // collection
-		else if (word.equals("arrayList")) {
+		else if (word.equals("ArrayList")) {
 			return new ArrayListCommand();
-		} else if (word.equals("hashMap")) {
+		} else if (word.equals("HashMap")) {
 			return new HashMapCommand();
 		} else if (word.equals("add")) {
 			return new ArrayAddCommand();

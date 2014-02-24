@@ -10,6 +10,7 @@ import java.util.regex.Matcher;
 
 public class JFrostCompiler {
 	
+	String _javaImports = "";
 	String _nativeJavaCode = "";
 
 	public JFrostCompiler() {
@@ -39,97 +40,102 @@ public class JFrostCompiler {
 	}
 	private FrostClass readSet(EnclosingSet set) {
 		//set.src = set.src.replaceAll("\\$([^\\$\\[\\s]+)\\[\\s*([^\\[\\]]+)\\s*\\]", "#arrayGet$1 $2");
-		set.src = set.src.replaceAll("( ?(=~all|=~|==|!=|>|<|>=|<=|!|\\+|-|/|\\*|%|=) ?)", " $2 ");
+		//set.src = set.src.replaceAll("( ?(=~all|=~|==|!=|>|<|>=|<=|!|\\+|-|/|\\*|%|=) ?)", " $2 ");
 		FrostClass out = new FrostClass();
 		out.children.put("#commands", new FrostCommandSet());
 		String[] lines = set.src.split("\n");
 		for (int lineIndex = 0 ; lineIndex < lines.length ; lineIndex ++) {
 			String line = lines[lineIndex];
-			List<String> words = new ArrayList<String>(Arrays.asList(line.split("\\s+")));
-			Collections.reverse(words);
-			for (int i = 0 ; i < words.size() ; i ++) {
-				if (words.get(i).equals("")) {
-					words.remove(i);
-				}
-			}
-			for (int i = 0 ; i < words.size() ; i ++) {
-				String word = words.get(i);
-				if (word.startsWith("CurlySet")) {
-					ArrayList<String> temp = new ArrayList<String>(words);
-					if (lineIndex > 0) {
-						List<String> t = new ArrayList<String>(Arrays.asList(lines[lineIndex-1].split("\\s+")));
-						Collections.reverse(t);
-						temp.addAll(t);
+			if (line.startsWith("javaImport")) {
+				_javaImports += "\n"+line.replaceFirst("javaImport", "import");
+			} else {
+				line = line.replaceAll("( ?(=~all|=~|==|!=|>|<|>=|<=|!|\\+|-|/|\\*|%|=) ?)", " $2 ");
+				List<String> words = new ArrayList<String>(Arrays.asList(line.split("\\s+")));
+				Collections.reverse(words);
+				for (int i = 0 ; i < words.size() ; i ++) {
+					if (words.get(i).equals("")) {
+						words.remove(i);
 					}
-					boolean found = false;
-					if (i+2 < temp.size()) {
-						if (temp.get(i+2).equals("class")) {
-							found = true;
-							FrostClass newSet = readSet(set.children.get(word));
-							newSet.name = temp.get(i+1);
-							newSet.parent = out;
-							out.children.put(temp.get(i+1), newSet);
-							i += 2;
-						} else if (temp.get(i+2).equals("func")) {
-							found = true;
-							FrostClass newSet = readSet(set.children.get(word));
-							newSet.name = temp.get(i+1);
-							newSet.parent = out;
-							out.children.put(temp.get(i+1), newSet);
-							i += 2;
+				}
+				for (int i = 0 ; i < words.size() ; i ++) {
+					String word = words.get(i);
+					if (word.startsWith("CurlySet")) {
+						ArrayList<String> temp = new ArrayList<String>(words);
+						if (lineIndex > 0) {
+							List<String> t = new ArrayList<String>(Arrays.asList(lines[lineIndex-1].split("\\s+")));
+							Collections.reverse(t);
+							temp.addAll(t);
+						}
+						boolean found = false;
+						if (i+2 < temp.size()) {
+							if (temp.get(i+2).equals("class")) {
+								found = true;
+								FrostClass newSet = readSet(set.children.get(word));
+								newSet.name = temp.get(i+1);
+								newSet.parent = out;
+								out.children.put(temp.get(i+1), newSet);
+								i += 2;
+							} else if (temp.get(i+2).equals("func")) {
+								found = true;
+								FrostClass newSet = readSet(set.children.get(word));
+								newSet.name = temp.get(i+1);
+								newSet.parent = out;
+								out.children.put(temp.get(i+1), newSet);
+								i += 2;
+							}
+						}
+						if (!found) {
+							FrostSet newSet = readSet(set.children.get(word));
+							out.children.put(word, newSet);
+							((FrostCommandSet) out.children.get("#commands")).add(new GoSubCommand(word));
 						}
 					}
-					if (!found) {
-						FrostSet newSet = readSet(set.children.get(word));
-						out.children.put(word, newSet);
-						((FrostCommandSet) out.children.get("#commands")).add(new GoSubCommand(word));
-					}
-				}
-				if (word.startsWith("ParenSet")) {
-					if (words.get(i+1).equals("elsif")) {
-						FrostCommand newSet = new FrostCommandUtils().commandForString(words.get(i+1));
+					if (word.startsWith("ParenSet")) {
+						if (words.get(i+1).equals("elsif")) {
+							FrostCommand newSet = new FrostCommandUtils().commandForString(words.get(i+1));
+							if (newSet != null) {
+								((FrostCommandSet) out.children.get("#commands")).add(newSet);
+							}
+							FrostSet newSet2 = readSet(set.children.get(word));
+							out.children.put(word, newSet2);
+							((FrostCommandSet) out.children.get("#commands")).add(new GoSubCommand(word));
+							i++;
+						} else {
+							FrostSet newSet = readSet(set.children.get(word));
+							out.children.put(word, newSet);
+							((FrostCommandSet) out.children.get("#commands")).add(new GoSubCommand(word));
+						}
+					} else if (word.startsWith("QuoteSet")) {
+						String quoteSrc = set.children.get(word).src;
+						((FrostCommandSet) out.children.get("#commands")).add(new StringCommand(quoteSrc));
+					} else if (word.startsWith("GraveSet")) {
+						String graveSrc = set.children.get(word).src;
+						((FrostCommandSet) out.children.get("#commands")).add(new RunCommand(graveSrc));
+					} else if (word.startsWith("#HashSet_")) {
+						final HashSet hashSet = ((HashSet) set.children.get(word.substring(0, word.length()-1)));
+						_nativeJavaCode += "public static void "+hashSet.name+"(FrostThread thread) {";
+						_nativeJavaCode += hashSet.src+"\n";
+						
+						FrostClass newSet = new FrostClass() {{
+							name = hashSet.name;
+							children = new ConcurrentHashMap<String, FrostSet>() {{
+								put("#commands", new FrostCommandSet() {{
+									add(new StringCommand(JFrost.srcName+"."+hashSet.name));
+									add(new RunnableCommand());
+									add(new ReturnCommand());
+								}});
+							}};
+						}};
+						newSet.parent = out;
+						out.children.put(hashSet.name, newSet);
+					} else {
+						if (word.startsWith("#SquareSet_")) {
+							word = replaceSquareSets(word, set);
+						}
+						FrostCommand newSet = new FrostCommandUtils().commandForString(word);
 						if (newSet != null) {
 							((FrostCommandSet) out.children.get("#commands")).add(newSet);
 						}
-						FrostSet newSet2 = readSet(set.children.get(word));
-						out.children.put(word, newSet2);
-						((FrostCommandSet) out.children.get("#commands")).add(new GoSubCommand(word));
-						i++;
-					} else {
-						FrostSet newSet = readSet(set.children.get(word));
-						out.children.put(word, newSet);
-						((FrostCommandSet) out.children.get("#commands")).add(new GoSubCommand(word));
-					}
-				} else if (word.startsWith("QuoteSet")) {
-					String quoteSrc = set.children.get(word).src;
-					((FrostCommandSet) out.children.get("#commands")).add(new StringCommand(quoteSrc));
-				} else if (word.startsWith("GraveSet")) {
-					String graveSrc = set.children.get(word).src;
-					((FrostCommandSet) out.children.get("#commands")).add(new RunCommand(graveSrc));
-				} else if (word.startsWith("#HashSet_")) {
-					final HashSet hashSet = ((HashSet) set.children.get(word.substring(0, word.length()-1)));
-					_nativeJavaCode += "public static void "+hashSet.name+"(FrostThread thread) {";
-					_nativeJavaCode += hashSet.src+"\n";
-					
-					FrostClass newSet = new FrostClass() {{
-						name = hashSet.name;
-						children = new ConcurrentHashMap<String, FrostSet>() {{
-							put("#commands", new FrostCommandSet() {{
-								add(new StringCommand(JFrost.srcName+"."+hashSet.name));
-								add(new RunnableCommand());
-								add(new ReturnCommand());
-							}});
-						}};
-					}};
-					newSet.parent = out;
-					out.children.put(hashSet.name, newSet);
-				} else {
-					if (word.contains("#SquareSet_")) {
-						word = replaceSquareSets(word, set);
-					}
-					FrostCommand newSet = new FrostCommandUtils().commandForString(word);
-					if (newSet != null) {
-						((FrostCommandSet) out.children.get("#commands")).add(newSet);
 					}
 				}
 			}
@@ -150,6 +156,7 @@ public class JFrostCompiler {
 
 	// convert to java code
 	private void generateCode(FrostClass fc, StringBuilder out) {
+		out.append(_javaImports+"\n");
 		out.append("import java.util.ArrayList;\n");
 		out.append("import java.util.concurrent.atomic.AtomicInteger;\n");
 		out.append("import java.util.concurrent.ConcurrentHashMap;\n");
